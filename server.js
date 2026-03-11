@@ -104,3 +104,29 @@ wssIngest.on("connection", (ws, req) => {
 server.listen(PORT, () => {
   console.log(`[Hub] Listening on :${PORT}`);
 });
+
+server.on("upgrade", (req, socket, head) => {
+  try {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const pathname = url.pathname;
+
+    if (pathname === "/ws") {
+      wssPhones.handleUpgrade(req, socket, head, (ws) => {
+        wssPhones.emit("connection", ws, req);
+      });
+      return;
+    }
+
+    if (pathname === "/ingestws") {
+      wssIngest.handleUpgrade(req, socket, head, (ws) => {
+        wssIngest.emit("connection", ws, req);
+      });
+      return;
+    }
+
+    // Unknown WS path
+    socket.destroy();
+  } catch (e) {
+    socket.destroy();
+  }
+});
