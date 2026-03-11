@@ -42,8 +42,8 @@ app.post("/api/survey", (req, res) => {
 
 const server = http.createServer(app);
 
-const wssPhones = new WebSocketServer({ server, path: "/ws" });
-const wssIngest = new WebSocketServer({ server, path: "/ingestws" });
+const wssPhones = new WebSocketServer({ noServer: true });
+const wssIngest = new WebSocketServer({ noServer: true });
 
 const clientsByZone = new Map([["A", new Set()], ["B", new Set()], ["C", new Set()], ["D", new Set()]]);
 
