@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Light Show</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: #000;
+      transition: background-color 80ms linear;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    .overlay {
+      position: fixed; bottom: 14px; left: 14px; right: 14px;
+      display: flex; justify-content: space-between; gap: 10px;
+      font-size: 12px;
+      opacity: 0.70;
+      color: rgba(255,255,255,0.75);
+      pointer-events: none;
+    }
+    .btnRow {
+      position: fixed; top: 14px; left: 14px; right: 14px;
+      display: flex; justify-content: space-between; gap: 10px;
+      pointer-events: auto;
+    }
+    button {
+      pointer-events: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.25);
+      color: rgba(255,255,255,0.85);
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="btnRow">
+    <button id="fsBtn">Fullscreen</button>
+    <button id="leaveBtn">Leave</button>
+  </div>
+  <div class="overlay">
+    <div id="zone"></div>
+    <div id="status"></div>
+  </div>
+
+<script type="module">
+  const params = new URLSearchParams(location.search);
+  const token = params.get("token") || localStorage.getItem("showToken");
+  const zoneEl = document.getElementById("zone");
+  const statusEl = document.getElementById("status");
+  const fsBtn = document.getElementById("fsBtn");
+  const leaveBtn = document.getElementById("leaveBtn");
+
+  if (!token) location.href = "/";
+
+  async function goFullscreen(){
+    try { await document.documentElement.requestFullscreen(); } catch (_) {}
+  }
+  fsBtn.addEventListener("click", goFullscreen);
+  leaveBtn.addEventListener("click", () => {
+    localStorage.removeItem("showToken");
+    location.href = "/";
+  });
+
+  // Wake lock best-effort (works reliably over HTTPS)
+  let wakeLock = null;
+  async function requestWakeLock(){
+    try { if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); } catch (_) {}
+  }
+  requestWakeLock();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") requestWakeLock();
+  });
+
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(token)}`);
+
+  ws.onopen = () => statusEl.textContent = "Connected";
+  ws.onclose = () => statusEl.textContent = "Disconnected";
+  ws.onerror = () => statusEl.textContent = "Connection error";
+
+  ws.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === "hello") {
+        zoneEl.textContent = `Zone ${msg.zone}`;
+        document.body.style.backgroundColor = msg.color || "#000000";
+      } else if (msg.type === "color") {
+        document.body.style.backgroundColor = msg.hex;
+      } else if (msg.type === "error") {
+        statusEl.textContent = msg.message;
+      }
+    } catch (_) {}
+  };
+</script>
+</body>
+</html>
